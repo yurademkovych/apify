@@ -31,7 +31,8 @@ Apify.main(async () => {
         const store = await Apify.openKeyValueStore('OUTPUT');
         await store.setValue('OUTPUT', `${csv}`, { contentType: 'text/csv' });
     } else {
-        await Apify.callTask('herme7/amazon-task', { memoryMbytes: memory, waitSecs: 12000 });
+        await axios.post(`https://api.apify.com/v2/actor-tasks/herme7~amazon-task/runs?token=${process.env.APIFY_TOKEN}`,
+            { memoryMbytes: memory, waitSecs: 12000 });
         const store = await Apify.openKeyValueStore('OUTPUT');
         // eslint-disable-next-line max-len
         const response = await axios.get(`https://api.apify.com/v2/datasets/KmkcNZuf9qRyzm44U/items?token=${process.env.APIFY_TOKEN}&format=csv&limit=${maxItems}&fields=${fields}`);
