@@ -1,6 +1,6 @@
 const Apify = require('apify');
 
-const apifyClient = process.env.APIFY_TOKEN;
+const apifyClient = Apify.newClient({ token: process.env.APIFY_TOKEN });
 
 Apify.main(async () => {
     const actorClient = apifyClient.actor('herme7/amazon-scraper');
