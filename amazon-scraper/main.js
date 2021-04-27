@@ -1,5 +1,7 @@
 const Apify = require('apify');
 const tools = require('./src/tools');
+const { SEARCH } = require('./src/consts').LABELS;
+const { asinInfo, purgeAsinInfo } = require('./src/asinInfo');
 
 const { utils: { log } } = Apify;
 
@@ -9,19 +11,26 @@ Apify.main(async () => {
 
     const requestQueue = await Apify.openRequestQueue();
     await requestQueue.addRequest({ url: `https://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=${input.keyword}`,
-        userData: { label: 'SEARCH' } });
+        userData: { label: SEARCH } });
     const router = tools.createRouter({ requestQueue });
     const proxyConfiguration = await Apify.createProxyConfiguration({
         groups: ['BUYPROXIES94952'],
         countryCode: 'US',
     });
 
+    await purgeAsinInfo();
+    const infos = await Apify.openKeyValueStore('info');
+    asinInfo(infos, 20000);
+
     const crawler = new Apify.PuppeteerCrawler({
         requestQueue,
         proxyConfiguration,
         useSessionPool: true,
         sessionPoolOptions: {
-            maxPoolSize: 5,
+            maxPoolSize: 100,
+            sessionOptions: {
+                maxUsageCount: 5,
+            },
         },
         handlePageTimeoutSecs: 200,
 
@@ -48,7 +57,7 @@ Apify.main(async () => {
         },
 
         handleFailedRequestFunction: async ({ request }) => {
-            const debugDataSet = await Apify.openDataset('debug-united-print');
+            const debugDataSet = await Apify.openDataset('herme7/amazon');
             await debugDataSet.pushData({
                 '#debug': Apify.utils.createRequestDebugInfo(request),
             });
@@ -61,6 +70,6 @@ Apify.main(async () => {
     await Apify.call('apify/send-mail', {
         to: 'lukas@apify.com',
         subject: 'This is for the Apify SDK exercise from Yurii Demkovych',
-        text: 'https://api.apify.com/v2/datasets/wrx9c09qejRLcchSe/items?clean=true&format=json',
+        text: `https://api.apify.com/v2/datasets/${process.env.APIFY_DEFAULT_DATASET_ID}/items?clean=true&format=json`,
     });
 });
