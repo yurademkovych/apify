@@ -317,7 +317,7 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Migrations happen randomly, but by setting Restart on error and then throwing an error in the main process, you can force a similar situation. Observe what happens. What changes and what stays the same in a restarted actor run?
 
-> By setting Restart on error and then throwing an error in the main process, you can catch migration process. Can be the same place where erorr thrown, but also can be different place of migration, because it happen randomly.
+> By setting Restart on error and then throwing an error in the main process, you can catch migration process. Can be the same place where error thrown, but also can be different place of migration, because it happen randomly.
 
 ### Why don't you usually need to add any special code to handle migrations in normal crawling/scraping? Is there a component that essentially solves this problem for you?
 

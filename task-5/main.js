@@ -1,37 +1,28 @@
 const Apify = require('apify');
+const axios = require('axios');
 
-const ApifyClient = require('apify-client');
-
-const apifyClient = new ApifyClient({ token: 'k5YEny5rFcRAz7t5ZSQbL2fmF' });
-const { utils: { log } } = Apify;
+const apifyClient = Apify.newClient({ token: process.env.APIFY_TOKEN });
 
 Apify.main(async () => {
-    const input = await Apify.getValue('INPUT');
-    process.env.APIFY_MEMORY_MBYTES = input.memory;
-    const { maxItems } = input;
-    const { fields } = input;
-
-    function mapOut(sourceObject, removeKeys = []) {
-        const sourceKeys = Object.keys(sourceObject);
-        const returnKeys = sourceKeys.filter((k) => removeKeys.includes(k));
-        const returnObject = {};
-        returnKeys.forEach((k) => {
-            returnObject[k] = sourceObject[k];
-        });
-        return returnObject;
-    }
+    const input = await Apify.getInput();
+    const { memory, maxItems, fields } = input;
 
     if (input.useClient) {
         const actorClient = apifyClient.task('herme7/amazon-task');
+        if (!actorClient) throw new Error('Actor not found!');
+
+        await Apify.callTask('herme7/amazon-task', { memoryMbytes: memory, waitSecs: 12000 });
+
+        const runsClient = actorClient.runs();
+        if (!runsClient) throw new Error('There is no succeeded runs!');
+
         const lastSucceededRunClient = actorClient.lastRun({ status: 'SUCCEEDED' });
-        const { items } = await lastSucceededRunClient.dataset().listItems();
+        const { items } = await lastSucceededRunClient.dataset().listItems({ limit: maxItems, fields });
 
-        const itm = items.slice(0, maxItems);
-        const newArray = itm.map((obj) => mapOut(obj, fields));
-
-        const item = newArray;
+        const item = items;
         const replacer = (key, value) => (value === null ? '' : value);
         const header = Object.keys(item[0]);
+
         const csv = [
             header.join(','),
             ...item.map((row) => header.map((fieldName) => JSON.stringify(row[fieldName], replacer)).join(',')),
@@ -40,7 +31,10 @@ Apify.main(async () => {
         const store = await Apify.openKeyValueStore('OUTPUT');
         await store.setValue('OUTPUT', `${csv}`, { contentType: 'text/csv' });
     } else {
-        const run = await Apify.callTask('herme7/amazon-task');
-        log.info(`Received message: ${run.output.body.message}`);
+        await Apify.callTask('herme7/amazon-task', { memoryMbytes: memory, waitSecs: 12000 });
+        const store = await Apify.openKeyValueStore('OUTPUT');
+        // eslint-disable-next-line max-len
+        const response = await axios.get(`https://api.apify.com/v2/datasets/KmkcNZuf9qRyzm44U/items?token=${process.env.APIFY_TOKEN}&format=csv&limit=${maxItems}&fields=${fields}`);
+        await store.setValue('OUTPUT', `${response.data}`, { contentType: 'text/csv' });
     }
 });

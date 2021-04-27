@@ -4,9 +4,8 @@ const tools = require('./src/tools');
 const { utils: { log } } = Apify;
 
 Apify.main(async () => {
-    const input = await Apify.getValue('INPUT');
+    const input = await Apify.getInput();
     if (!input || !input.keyword) throw new Error('INPUT must contain a keyword!');
-    log.info(`Searching for keyword ${input.keyword}...`);
 
     const requestQueue = await Apify.openRequestQueue();
     await requestQueue.addRequest({ url: `https://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=${input.keyword}`,
@@ -28,7 +27,7 @@ Apify.main(async () => {
 
         launchContext: {
             launchOptions: {
-                headless: true,
+                headless: false,
             },
         },
         autoscaledPoolOptions: {
@@ -38,7 +37,9 @@ Apify.main(async () => {
 
         handlePageFunction: async (context) => {
             const { request, page, puppeteerPool } = context;
+            log.info(`Searching for keyword ${input.keyword}...`);
             log.info(`Processing ${request.url}`);
+
             await router(request.userData.label, context);
             if (page.url().includes('sorry')) {
                 await puppeteerPool.retire(page.browser());
@@ -47,17 +48,19 @@ Apify.main(async () => {
         },
 
         handleFailedRequestFunction: async ({ request }) => {
+            const debugDataSet = await Apify.openDataset('debug-united-print');
+            await debugDataSet.pushData({
+                '#debug': Apify.utils.createRequestDebugInfo(request),
+            });
             log.info(`Request ${request.url} failed too many times.`);
         },
     });
 
-    await Apify.addWebhook({
-        eventTypes: ['ACTOR.RUN.SUCCEEDED'],
-        requestUrl: 'https://api.apify.com/v2/acts/herme7~best-offer/runs?token=k5YEny5rFcRAz7t5ZSQbL2fmF',
-        idempotencyKey: 'vpByZGo6Fs6AynxoB',
-    });
-
     await crawler.run();
 
-    log.info('Crawler finished.');
+    await Apify.call('apify/send-mail', {
+        to: 'lukas@apify.com',
+        subject: 'This is for the Apify SDK exercise from Yurii Demkovych',
+        text: 'https://api.apify.com/v2/datasets/wrx9c09qejRLcchSe/items?clean=true&format=json',
+    });
 });

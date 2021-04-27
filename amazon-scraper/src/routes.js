@@ -12,12 +12,6 @@ exports.SEARCH = async ({ page }, { requestQueue }) => {
         (divs) => divs.map((div) => div.dataset.asin),
     );
 
-    const store = await Apify.openKeyValueStore('OUTPUT');
-
-    await Apify.events.on('persistState', (data) => {
-        if (data.isMigrating) store.setValue('OUTPUT', data);
-    });
-
     await asinData.map((e) => requestQueue.addRequest({
         url: `https://www.amazon.com/dp/${e}/ref=olp_aod_redir_impl1/146-7797046-7532502?_encoding=UTF8&aod=1`,
         userData: { label: 'DETAIL' } }));
@@ -26,7 +20,7 @@ exports.SEARCH = async ({ page }, { requestQueue }) => {
 exports.DETAIL = async ({ page }) => {
     await page.waitForSelector('#aod-price-1');
 
-    log.info('Scraping OFFRES');
+    log.info('Route OFFRES');
 
     const cost = await page.$$eval('#aod-offer-price .a-price .a-offscreen', (el) => el.map((prs) => {
         return prs.textContent;
@@ -36,8 +30,8 @@ exports.DETAIL = async ({ page }) => {
         return sh.textContent.trim();
     }));
 
-    const shipsPrice = await page.$$eval('#fast-track-message #delivery-message', (el) => el.map((shprs) => {
-        return shprs.textContent.trim().substring(0, 4);
+    const shipsPrice = await page.$$eval('#fast-track-message #delivery-message', (el) => el.map((priceResult) => {
+        return priceResult.textContent.trim().substring(0, 4);
     }));
 
     page.keyboard.press('Escape');
@@ -49,11 +43,14 @@ exports.DETAIL = async ({ page }) => {
     await page.waitForSelector('#ASIN');
     const ASIN = await page.$eval('#ASIN', (el) => el.value);
 
-    const store = await Apify.openKeyValueStore('OUTPUT');
-
-    await Apify.events.on('persistState', (data) => {
-        if (data.isMigrating) store.setValue('OUTPUT', data);
+    const info = [];
+    info.push({
+        [ASIN]: cost.length,
     });
+
+    setInterval(() => {
+        log.info(JSON.stringify(info));
+    }, 20000);
 
     const title = await page.$eval('#productTitle', (el) => el.textContent.trim());
     const url = `https://www.amazon.com/dp/${ASIN}`;
@@ -74,4 +71,10 @@ exports.DETAIL = async ({ page }) => {
         });
     }
     await Apify.pushData(data);
+
+    const store = await Apify.openKeyValueStore('migration');
+
+    await Apify.events.on('persistState', (migrateData) => {
+        if (migrateData.isMigrating) store.setValue('migration', `${info}`);
+    });
 };

@@ -1,16 +1,19 @@
 const Apify = require('apify');
 
-const ApifyClient = require('apify-client');
-
-const apifyClient = new ApifyClient({ token: 'k5YEny5rFcRAz7t5ZSQbL2fmF' });
+const apifyClient = process.env.APIFY_TOKEN;
 
 Apify.main(async () => {
     const actorClient = apifyClient.actor('herme7/amazon-scraper');
+    if (!actorClient) throw new Error('Actor not found!');
+
     const lastSucceededRunClient = actorClient.lastRun({ status: 'SUCCEEDED' });
+    if (!lastSucceededRunClient) throw new Error('There is no succeeded runs!');
+
     const { items } = await lastSucceededRunClient.dataset().listItems();
 
     function getGroupedBy(products, key) {
         const groups = {}; const
+
             result = [];
         products.forEach((a) => {
             if (!(a[key] in groups)) {
