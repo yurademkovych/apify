@@ -103,7 +103,7 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Can you change the memory allocated to a running actor?
 
-> By changing `process.env.APIFY_MEMORY_MBYTES`
+> Yes — in the web app settings or in the API call props using `process.env.APIFY_MEMORY_MBYTES`.
 
 ### How can you run an actor with Puppeteer in a headful (non-headless) mode?
 
@@ -120,11 +120,7 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Does your Dockerfile need to contain a CMD command (assuming we don't want to use ENTRYPOINT which is similar)? If yes or no, why?
 
-> Ultimately, both ENTRYPOINT and CMD give you a way to identify which executable should be run when a container is started from your image. In fact, if you want your image to be runnable (without additional docker run command line arguments) you must specify an ENTRYPOINT or CMD.
-> 
-> If you want your image to actually do anything when it is run, you should definitely configure some sort of ENTRYPOINT or CMD in you Dockerfile. However, remember that they aren't mutually exclusive. In many cases you can improve the user experience of your image by using them in combination.
-> 
-> No matter how you use these instructions you should always default to using the exec form.
+> It doesn't have to because, for example, docker-compose can assign a CMD command for the Docker container. Also, base image may define the CMD instruction.
 
 ### How does the FROM command work and which base images Apify provides?
 
@@ -231,13 +227,14 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Does it make sense to rotate proxies when you are logged in?
 
-> Not really, because the system can disable you if it sees different ip addresses on the same account
+> The main goal of the rotation process is to imitate a user other from blocked, so the answer is no, because it will be unacceptable behaviour of basic user. User can't log in from one IP and does some actions on site from another IP.
+But just in some weird cases, some sites will block the IP but not the account so you can/need to rotate even under login. That is really just the last solution.
 
 ### Construct a proxy URL that will select proxies only from the US (without specific groups).
 
-> `const proxyConfiguration = await Apify.createProxyConfiguration({`
->      `countryCode: 'US',`
->  `});`
+> http://\<session>,country-US:\<password>@proxy.apify.com:8000.
+You can use a session pool for rotating the proxy IPs. You can select proxies from a specific country by passing a countryCode parameter to the proxy config.
+Puppeteer rotates proxy/IP only after the browser changes (not a single page). So by default, it will use the same IP for 100 requests, unlike Cheerio.
 
 ### What do you need to do to rotate proxies (one proxy usually has one IP)? How does this differ for Cheerio Scraper and Puppeteer Scraper?
 
@@ -251,7 +248,7 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Try to set up the Apify Proxy (using any group or auto) in your browser. This is useful for testing how websites behave with proxies from specific countries (although most are from the US). You can try Switchy Omega extension but there are many more. Were you successful?
 
-> Yes, I successfully configured the proxy through the Switchy Omega and tested some sites.
+> Yes, I successfully configured the proxy through the Switchy Omega and succeeded.
 
 ### Name a few different ways a website can prevent you from scraping it.
 
@@ -313,20 +310,20 @@ binaries such as the Chrome browser, Puppeteer, or other multi-threaded librarie
 
 ### Actors have a Restart on error option in their Settings. Would you use this for your regular actors? Why? When would you use it, and when not?
 
-> It useful when you use `session` options, because, in this case, you will use 1 ip until it will blocked and when browser restarts, ip automatically changes, and when you need to catch migration process.
+> There are many situations when this may cause a problem (especially when you are completely blocked by the site's defense so you may restart many-many times). But in some cases, when a small task needs to be done, it may really help.
 
 ### Migrations happen randomly, but by setting Restart on error and then throwing an error in the main process, you can force a similar situation. Observe what happens. What changes and what stays the same in a restarted actor run?
 
-> By setting Restart on error and then throwing an error in the main process, you can catch migration process. Can be the same place where error thrown, but also can be different place of migration, because it happen randomly.
+> This option isn't a good idea, when we develop or debug our actor. Because it possibly can have some errors or bugs, which will be reproduced if this option is on, and only we can fix these errors. It can be useful, if we have tested and bug-less actor and if this actor has some errors, which don't related to our code (like connection error etc.), "Restart on error" option will restart our actor, and these errors can be fixed by this restart. This option more suitable for production version of our actor.
 
 ### Why don't you usually need to add any special code to handle migrations in normal crawling/scraping? Is there a component that essentially solves this problem for you?
 
-> Because, usually, you can see where the migration can take place, if it happens at all in a small scraper without additional code. Instead of special code, you can use `Apify.events`.
+> Yes, special events are emitted (migration and persistState) and have been handled by the SDK itself.
 
 ### How can you intercept the migration event? How much time do you need after this takes place and before the actor migrates?
 
-> You can intercept the migration event using `Apify.events.on('migrating');`
+> On listening to the migration and persistState events and handling them. You have several seconds during which you can do some actions.
 
 ### When would you persist data to a default key-value store and when would you use a named key-value store?
 
-> I prefer use default key-value store to static data and use a named key-value store for dynamic data. 
+> Default key-value store is good when we don't need to save our data to a long period, also default key-value store attached to a specific run of actor. We prefer to use named key-value store when we need to store data for a long period. Also, it doesn't attach to a specific run, and we can simple reach it. 
