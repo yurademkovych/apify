@@ -4,6 +4,8 @@ const {
     utils: { log },
 } = Apify;
 
+const { DETAIL } = require('./consts').LABELS;
+
 exports.SEARCH = async ({ page }, { requestQueue }) => {
     await page.waitForSelector('div.s-asin');
 
@@ -14,13 +16,13 @@ exports.SEARCH = async ({ page }, { requestQueue }) => {
 
     await asinData.map((e) => requestQueue.addRequest({
         url: `https://www.amazon.com/dp/${e}/ref=olp_aod_redir_impl1/146-7797046-7532502?_encoding=UTF8&aod=1`,
-        userData: { label: 'DETAIL' } }));
+        userData: { label: DETAIL } }));
 };
 
 exports.DETAIL = async ({ page }) => {
     await page.waitForSelector('#aod-price-1');
 
-    log.info('Route OFFRES');
+    log.info('Scraping OFFERS');
 
     const cost = await page.$$eval('#aod-offer-price .a-price .a-offscreen', (el) => el.map((prs) => {
         return prs.textContent;
@@ -34,6 +36,11 @@ exports.DETAIL = async ({ page }) => {
         return priceResult.textContent.trim().substring(0, 4);
     }));
 
+    if (await page.$('#exports_desktop_undeliverable_buybox')) {
+        log.info(`${url}: There is no offers in this region.`);
+        return;
+    }
+
     page.keyboard.press('Escape');
 
     log.info('Scraping DETAIL');
@@ -43,14 +50,8 @@ exports.DETAIL = async ({ page }) => {
     await page.waitForSelector('#ASIN');
     const ASIN = await page.$eval('#ASIN', (el) => el.value);
 
-    const info = [];
-    info.push({
-        [ASIN]: cost.length,
-    });
-
-    setInterval(() => {
-        log.info(JSON.stringify(info));
-    }, 20000);
+    const infos = await Apify.openKeyValueStore('info');
+    await infos.setValue(ASIN, +await infos.getValue(ASIN) + cost.length);
 
     const title = await page.$eval('#productTitle', (el) => el.textContent.trim());
     const url = `https://www.amazon.com/dp/${ASIN}`;
@@ -71,10 +72,4 @@ exports.DETAIL = async ({ page }) => {
         });
     }
     await Apify.pushData(data);
-
-    const store = await Apify.openKeyValueStore('migration');
-
-    await Apify.events.on('persistState', (migrateData) => {
-        if (migrateData.isMigrating) store.setValue('migration', `${info}`);
-    });
 };
