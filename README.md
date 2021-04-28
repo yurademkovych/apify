@@ -18,7 +18,7 @@
 
 > Cheerio and jQuery can be primarily classified as "Javascript UI Libraries" tools.
 
-> jQuery is an open source tool with 53.9K GitHub stars and 19.5K GitHub forks. Here's a link to jQuery's open source repository on GitHub.
+> jQuery is an open source tool with 53.9K GitHub stars and 19.5K GitHub forks.
 
 ### When would you use CheerioCrawler and what are its limitations?
 
