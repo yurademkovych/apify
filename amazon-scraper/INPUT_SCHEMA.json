@@ -1,1 +1,18 @@
-{ "keyword": "phone" }
+{
+  "title": "amazon",
+  "description": "Apify Tutorials base scraper",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "keyword": {
+      "title": "title",
+      "type": "string",
+      "description": "Amazon search keyword",
+      "prefill": "iPhone",
+      "editor": "textfield"
+    }
+  },
+  "required": [
+    "keyword"
+  ]
+}
