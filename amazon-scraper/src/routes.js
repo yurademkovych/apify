@@ -5,6 +5,7 @@ const {
 } = Apify;
 
 const { DETAIL } = require('./consts').LABELS;
+const { Scroll } = require('./scroll');
 
 exports.SEARCH = async ({ page }, { requestQueue }) => {
     await page.waitForSelector('div.s-asin');
@@ -22,7 +23,14 @@ exports.SEARCH = async ({ page }, { requestQueue }) => {
 exports.DETAIL = async ({ page }) => {
     await page.waitForSelector('#aod-price-1');
 
+    if (await page.$('#exports_desktop_undeliverable_buybox')) {
+        log.info(`${url}: There is no offers in this region.`);
+        return;
+    }
+
     log.info('Scraping OFFERS');
+
+    await Scroll(page);
 
     const cost = await page.$$eval('#aod-offer-price .a-price .a-offscreen', (el) => el.map((prs) => {
         return prs.textContent;
@@ -35,11 +43,6 @@ exports.DETAIL = async ({ page }) => {
     const shipsPrice = await page.$$eval('#fast-track-message #delivery-message', (el) => el.map((priceResult) => {
         return priceResult.textContent.trim().substring(0, 4);
     }));
-
-    if (await page.$('#exports_desktop_undeliverable_buybox')) {
-        log.info(`${url}: There is no offers in this region.`);
-        return;
-    }
 
     page.keyboard.press('Escape');
 
