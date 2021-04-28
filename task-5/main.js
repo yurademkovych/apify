@@ -1,41 +1,57 @@
 const Apify = require('apify');
 const axios = require('axios');
 
-const apifyClient = Apify.newClient({ token: process.env.APIFY_TOKEN });
+const client = Apify.newClient({ token: process.env.APIFY_TOKEN });
+const { utils: { log } } = Apify;
 
 Apify.main(async () => {
     const input = await Apify.getInput();
     const { memory, maxItems, fields } = input;
+    const store = await Apify.openKeyValueStore('OUTPUT');
 
     if (input.useClient) {
-        const actorClient = apifyClient.task('herme7/amazon-task');
+        const actorClient = client.task('herme7/amazon-task');
         if (!actorClient) throw new Error('Actor not found!');
 
-        await Apify.callTask('herme7/amazon-task', { memoryMbytes: memory, waitSecs: 12000 });
+        await Apify.callTask('herme7/amazon-task', { memoryMbytes: memory });
 
         const runsClient = actorClient.runs();
         if (!runsClient) throw new Error('There is no succeeded runs!');
 
-        const lastSucceededRunClient = actorClient.lastRun({ status: 'SUCCEEDED' });
-        const { items } = await lastSucceededRunClient.dataset().listItems({ limit: maxItems, fields });
+        const { defaultDatasetId, id } = runsClient;
 
-        const item = items;
-        const replacer = (key, value) => (value === null ? '' : value);
-        const header = Object.keys(item[0]);
+        if (!id) {
+            log.error('Invalid task parameters');
+            await Apify.setValue('OUTPUT', {
+                result: 'Invalid task parameters',
+            });
+            return;
+        }
 
-        const csv = [
-            header.join(','),
-            ...item.map((row) => header.map((fieldName) => JSON.stringify(row[fieldName], replacer)).join(',')),
-        ].join('\r\n');
+        const datasetClient = client.dataset(defaultDatasetId);
+        const options = {
+            limit: maxItems,
+            fields,
+        };
 
-        const store = await Apify.openKeyValueStore('OUTPUT');
-        await store.setValue('OUTPUT', `${csv}`, { contentType: 'text/csv' });
+        const data = await datasetClient.downloadItems('csv', options);
+
+        if (!data) {
+            log.error('Failed to fetch dataset');
+
+            await Apify.setValue('OUTPUT', {
+                result: 'Failed to fetch dataset',
+            });
+            return;
+        }
+        await Apify.setValue('OUTPUT', data, { contentType: 'text/csv' });
     } else {
-        await axios.post(`https://api.apify.com/v2/actor-tasks/herme7~amazon-task/runs?token=${process.env.APIFY_TOKEN}`,
+        const taskRunResponse = await axios.post(`https://api.apify.com/v2/actor-tasks/herme7~amazon-task/runs?token=${process.env.APIFY_TOKEN}`,
             { memoryMbytes: memory, waitSecs: 12000 });
-        const store = await Apify.openKeyValueStore('OUTPUT');
+        const { data: { data: { defaultDatasetId } } } = taskRunResponse;
+        log.debug('taskRunResponse: ', taskRunResponse.data.data);
         // eslint-disable-next-line max-len
-        const response = await axios.get(`https://api.apify.com/v2/datasets/KmkcNZuf9qRyzm44U/items?token=${process.env.APIFY_TOKEN}&format=csv&limit=${maxItems}&fields=${fields}`);
+        const response = await axios.get(`https://api.apify.com/v2/datasets/${defaultDatasetId}/items?token=${process.env.APIFY_TOKEN}&format=csv&limit=${maxItems}&fields=${fields}`);
         await store.setValue('OUTPUT', `${response.data}`, { contentType: 'text/csv' });
     }
 });
