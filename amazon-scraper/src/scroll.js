@@ -17,17 +17,5 @@ exports.Scroll = async function (page) {
         if (!await page.$('#aod-end-of-results.aod-hide')) {
             log.debug(`offersCount after scroll - ${offersCount}`);
         }
-
-        try {
-            await page.waitForFunction(
-                `document.querySelectorAll('#aod-offer').length > ${offersCount}`,
-            );
-        } catch (err) {
-            log.error('Lazy scroll timeout.');
-        }
-
-        if (!await page.$('#aod-show-more-offers.aod-hide')) {
-            log.error('Need more scroll.');
-        }
     }
 };
